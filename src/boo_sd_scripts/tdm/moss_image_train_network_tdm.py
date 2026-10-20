@@ -46,6 +46,10 @@ def validate_tdm_args(args) -> None:
         "--unsloth_offload_checkpointing is not supported by TDM training (use --gradient_checkpointing,"
         " optionally with --cpu_offload_checkpointing)"
     )
+    assert not (getattr(args, "compile", False) and args.gradient_checkpointing), (
+        "--compile cannot be combined with --gradient_checkpointing in TDM training: TDM's mode-aware checkpoint wrapper"
+        " (per-call context_fn that restores the LoRA mode) is incompatible with torch.compile"
+    )
 
 
 def _capture_lora_state(network: TDMNetwork) -> tuple[list, list]:
@@ -82,9 +86,16 @@ def _mode_aware_checkpointing(network: TDMNetwork):
     student mode (silently wrong gradients) or with a different autograd graph (CheckpointError). The `context_fn` hook of
     torch.utils.checkpoint restores the mode captured at forward time around each recomputation.
     """
+    if not hasattr(moss_image_models, "torch_checkpoint"):
+        raise AttributeError(
+            "library.moss_image_models.torch_checkpoint not found: sd-scripts changed its checkpoint hook, so TDM's"
+            " mode-aware gradient checkpointing cannot be installed"
+        )
     original = moss_image_models.torch_checkpoint
 
     def checkpoint(function, *args, **kwargs):
+        if not torch.is_grad_enabled():
+            return original(function, *args, **kwargs)  # nothing is recomputed without autograd
         state = _capture_lora_state(network)
         return original(function, *args, context_fn=lambda: (nullcontext(), _lora_state(state, network)), **kwargs)
 

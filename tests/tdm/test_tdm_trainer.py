@@ -42,6 +42,7 @@ def _args(**overrides):
         "network_module": "boo_sd_scripts.tdm.tdm_network",
         "blocks_to_swap": None,
         "loss_type": "l2",
+        "compile": False,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -180,3 +181,16 @@ def test_missing_uncond_embeddings_raise():
 def test_validate_tdm_args_rejects_unsloth_offload():
     with pytest.raises(AssertionError):
         tdm_trainer.validate_tdm_args(_args(unsloth_offload_checkpointing=True))
+
+
+def test_validate_tdm_args_rejects_compile_with_gradient_checkpointing():
+    tdm_trainer.validate_tdm_args(_args(compile=True))
+    tdm_trainer.validate_tdm_args(_args(gradient_checkpointing=True))
+    with pytest.raises(AssertionError, match="--compile"):
+        tdm_trainer.validate_tdm_args(_args(compile=True, gradient_checkpointing=True))
+
+
+def test_mode_aware_checkpointing_requires_torch_checkpoint(monkeypatch):
+    monkeypatch.delattr(tdm_trainer.moss_image_models, "torch_checkpoint")
+    with pytest.raises(AttributeError, match="torch_checkpoint"), tdm_trainer._mode_aware_checkpointing(None):
+        pass
