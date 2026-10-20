@@ -108,7 +108,7 @@ extend-exclude = ["sd-scripts"]
 
 [tool.ruff.lint.isort]
 # sd-scripts packages are first-party for sorting; boo_sd_scripts sorts first, so _sd_scripts runs before they import.
-known-first-party = ["boo_sd_scripts", "library", "networks"]
+known-first-party = ["boo_sd_scripts", "library", "networks", "train_network", "moss_image_train_network"]
 
 [build-system]
 requires = ["hatchling"]
