@@ -32,6 +32,7 @@ class TDMNetwork(lora_generic.LoRANetwork):
         fake_lr = self.fake_lr
         if fake_lr is None:
             fake_lr = (unet_lr if unet_lr is not None else default_lr) * FAKE_LR_RATIO
+        # Requires a prior apply_to() so the fake LoRA modules are registered and fake.parameters() is non-empty.
         params.append({"params": list(self.fake.parameters()), "lr": fake_lr})
         descriptions.append("tdm fake score")
         return params, descriptions

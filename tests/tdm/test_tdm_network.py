@@ -72,21 +72,71 @@ def test_modes_select_teacher_student_fake():
     assert not torch.allclose(student, fake, atol=1e-4)
 
 
+def _fake_group_checks(net, params):
+    fake_ids = {id(p) for p in net.fake.parameters()}
+    student_ids = {id(p) for p in net.parameters()} - fake_ids
+    group_ids = {id(p) for p in params[-1]["params"]}
+    assert len(params[-1]["params"]) == 2 * NUM_UNET_MODULES
+    assert group_ids == fake_ids
+    assert student_ids and not (student_ids & fake_ids)
+    assert not any(id(p) in fake_ids for g in params[:-1] for p in g["params"])
+
+
 def test_optimizer_groups_put_fake_params_in_their_own_group_with_10x_lr():
-    net = make_network(make_dit())
+    dit = make_dit()
+    net = make_network(dit)
+    net.apply_to([None], dit, apply_text_encoder=False, apply_unet=True)
     params, descriptions = net.prepare_optimizer_params_with_multiple_te_lrs(None, 1e-4, 1e-4)
     assert len(params) == len(descriptions)
-    fake_ids = {id(p) for p in net.fake.parameters()}
-    student_groups = params[:-1]
+    _fake_group_checks(net, params)
     assert params[-1]["lr"] == 1e-3
-    assert {id(p) for p in params[-1]["params"]} == fake_ids
-    assert all(id(p) not in fake_ids for g in student_groups for p in g["params"])
 
 
 def test_explicit_fake_lr():
-    net = make_network(make_dit(), fake_lr="5e-5")
+    dit = make_dit()
+    net = make_network(dit, fake_lr="5e-5")
+    net.apply_to([None], dit, apply_text_encoder=False, apply_unet=True)
     params, _ = net.prepare_optimizer_params_with_multiple_te_lrs(None, 1e-4, 1e-4)
+    _fake_group_checks(net, params)
     assert params[-1]["lr"] == 5e-5
+
+
+def _grad_forward_backward(dit):
+    g = torch.Generator().manual_seed(1)
+    x = torch.randn(1, 8, 4, 4, generator=g)
+    ctx = torch.randn(1, 5, 24, generator=g)
+    mask = torch.ones(1, 5, dtype=torch.int32)
+    dit(x, torch.tensor([500.0]), ctx, mask).sum().backward()
+
+
+def _has_grad(module):
+    return any(p.grad is not None and p.grad.abs().sum() > 0 for p in module.parameters())
+
+
+def test_gradient_flows_only_to_active_lora():
+    dit = make_dit()
+    dit.requires_grad_(False)
+    net = make_network(dit)
+    net.apply_to([None], dit, apply_text_encoder=False, apply_unet=True)
+    _randomize_up(net)
+    _randomize_up(net.fake)
+    student_params = [p for p in net.parameters() if id(p) not in {id(q) for q in net.fake.parameters()}]
+    assert student_params and list(net.fake.parameters())
+
+    def student_has_grad():
+        return any(p.grad is not None and p.grad.abs().sum() > 0 for p in student_params)
+
+    net.zero_grad(set_to_none=True)
+    net.set_mode(0.0, 1.0)
+    _grad_forward_backward(dit)
+    assert _has_grad(net.fake)
+    assert not student_has_grad()
+
+    net.zero_grad(set_to_none=True)
+    net.set_mode(1.0, 0.0)
+    _grad_forward_backward(dit)
+    assert student_has_grad()
+    assert not _has_grad(net.fake)
 
 
 def test_save_weights_contains_only_student_keys(tmp_path):
