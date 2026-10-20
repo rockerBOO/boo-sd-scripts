@@ -1,17 +1,114 @@
 [project]
 name = "boo-sd-scripts"
 version = "0.1.0"
-description = "Add your description here"
+description = "Training extensions (TDM, ...) built on sd-scripts, vendored as a git submodule"
 readme = "README.md"
-authors = [
-    { name = "rockerBOO", email = "rockerboo@gmail.com" }
+requires-python = ">=3.10, <3.13"
+dependencies = [
+    "accelerate>=1.5.2",
+    "diffusers[torch]>=0.33.1",
+    "transformers==4.57.1",
+    "safetensors",
+    "toml>=0.10.2",
+    "voluptuous>=0.15.2",
+    "einops>=0.8.1",
+    "numpy<2.0",
+    "opencv-python>=4.11.0.86",
+    "imagesize>=1.4.1",
+    "pillow-avif-plugin>=1.5.1",
+    "sentencepiece>=0.2.0",
+    "tiktoken>=0.9.0",
+    "blobfile>=3.0.0",
+    "pywavelets>=1.8.0",
+    "matplotlib>=3.10.3",
+    "tensorhue>=0.1.0",
+    "torchao>=0.10.0",
+    "prodigyopt>=1.1.2",
+    "schedulefree>=1.4.1",
+    "lion-pytorch>=0.2.3",
+    "dadaptation>=3.2",
+    "bitsandbytes>=0.45.3",
+    "wandb>=0.19.5",
+    "ftfy",
 ]
-requires-python = ">=3.12"
-dependencies = []
 
-[project.scripts]
-boo-sd-scripts = "boo_sd_scripts:main"
+[project.optional-dependencies]
+cu124 = ["torch>=2.5.1", "torchvision>=0.20.1"]
+cu128 = ["torch>=2.7.1", "torchvision>=0.22.1"]
+cu130 = ["torch>=2.9.1", "torchvision>=0.24.1"]
+cu132 = ["torch==2.12.0", "torchvision==0.27.0"]
+cpu = ["torch>=2.12.0", "torchvision>=0.27.0"]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu124" },
+    { extra = "cu128" },
+    { extra = "cu130" },
+    { extra = "cu132" },
+  ],
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu124", extra = "cu124" },
+  { index = "pytorch-cu128", extra = "cu128" },
+  { index = "pytorch-cu130", extra = "cu130" },
+  { index = "pytorch-cu132", extra = "cu132" },
+]
+torchvision = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu124", extra = "cu124" },
+  { index = "pytorch-cu128", extra = "cu128" },
+  { index = "pytorch-cu130", extra = "cu130" },
+  { index = "pytorch-cu132", extra = "cu132" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.12.10",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 132
+indent-width = 4
+extend-exclude = ["sd-scripts"]
 
 [build-system]
-requires = ["uv_build>=0.12.20,<0.13.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boo_sd_scripts"]
