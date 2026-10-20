@@ -66,3 +66,17 @@ def test_sample_tdm_sigmas_ordering_and_ranges():
     assert (tau >= mid - 1e-6).all() and (tau <= g).all()
     assert (tau >= m.SIGMA_MIN - 1e-6).all()
     assert d.sigma_g.shape == (256, 1, 1, 1)
+
+
+def test_renoise_and_mixed_noise_with_increasing_sigma():
+    torch.manual_seed(0)
+    sa, sb = _b([0.3, 0.2]), _b([0.7, 0.9])
+    x0, eps, noise = torch.randn(2, 4, 2, 2), torch.randn(2, 4, 2, 2), torch.randn(2, 4, 2, 2)
+    x_a = (1 - sa) * x0 + sa * eps
+    out, beta = m.renoise(x_a, sa, sb, noise)
+    ratio = (1 - sb) / (1 - sa)
+    assert (beta > 0).all()
+    assert torch.allclose(ratio**2 * sa**2 + beta**2, sb**2, atol=1e-6)
+    # x_tau built directly from x0 and the effective noise equals the renoised sample
+    mixed = m.mixed_noise(eps, noise, sa, sb)
+    assert torch.allclose(out, (1 - sb) * x0 + sb * mixed, atol=1e-5)

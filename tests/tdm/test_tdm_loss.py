@@ -42,3 +42,23 @@ def test_fake_score_loss_shape_and_grad_isolation():
     loss.sum().backward()
     assert fake.grad is not None
     assert student.grad is None
+
+
+def test_target_uses_cond_minus_fake_with_fixed_sign():
+    s = torch.zeros(1, 1, 2, 2)
+    c = torch.full((1, 1, 2, 2), 3.0)
+    f = torch.full((1, 1, 2, 2), 1.0)
+    target, weighting = tdm_loss.tdm_generator_target(s, c, torch.zeros_like(c), f, cfg_scale=1.0)
+    # target = s + (c - f) = 2 (moves toward the teacher, away from the fake); a flipped sign would give -2
+    assert torch.allclose(target, torch.full_like(s, 2.0))
+    # cfg=1: teacher_cfg = c = 3, mean|s - 3| = 3
+    assert torch.allclose(weighting, torch.full((1, 1, 1, 1), 1.0 / 3.0))
+
+
+def test_fake_score_loss_value_with_weights():
+    fake = torch.full((2, 1, 2, 2), 2.0, requires_grad=True)
+    student = torch.zeros(2, 1, 2, 2)
+    student[1] = 1.0
+    loss = tdm_loss.fake_score_loss(fake, student, torch.tensor([2.0, 0.5]), torch.tensor([3.0, 4.0]))
+    # per-sample mse: 4 and 1; weighted: 4*2*3 = 24 and 1*0.5*4 = 2
+    assert torch.allclose(loss, torch.tensor([24.0, 2.0]))

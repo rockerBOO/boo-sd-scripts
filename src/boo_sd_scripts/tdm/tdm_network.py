@@ -8,7 +8,9 @@ one wraps the first one's forward), so a single DiT serves three roles by switch
 import boo_sd_scripts._sd_scripts  # noqa: F401  (must come before the sd-scripts imports)
 from networks import lora_generic
 
-FAKE_LR_RATIO = 10.0  # the paper trains the fake score with a 10x learning rate
+# Default fake-score LR is 10x the student's: a deliberate choice, the official train_tdm_demo.py uses a 5x ratio
+# (generator lr/5, fake lr). Adjustable per run with `--network_args fake_lr=...`.
+FAKE_LR_RATIO = 10.0
 
 
 class TDMNetwork(lora_generic.LoRANetwork):
@@ -44,6 +46,10 @@ class TDMNetwork(lora_generic.LoRANetwork):
             super().save_weights(file, dtype, metadata)
         finally:
             self._modules["fake"] = fake
+
+
+# `--base_weights` merges plain LoRA files into the base model; no fake LoRA is involved, so the generic loader is correct.
+create_network_from_weights = lora_generic.create_network_from_weights
 
 
 def create_network(multiplier, network_dim, network_alpha, vae, text_encoder, unet, neuron_dropout=None, **kwargs) -> TDMNetwork:

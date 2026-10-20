@@ -194,3 +194,9 @@ def test_mode_aware_checkpointing_requires_torch_checkpoint(monkeypatch):
     monkeypatch.delattr(tdm_trainer.moss_image_models, "torch_checkpoint")
     with pytest.raises(AttributeError, match="torch_checkpoint"), tdm_trainer._mode_aware_checkpointing(None):
         pass
+
+
+def test_validate_tdm_args_rejects_dim_from_weights():
+    tdm_trainer.validate_tdm_args(_args(dim_from_weights=False))
+    with pytest.raises(AssertionError, match="--dim_from_weights"):
+        tdm_trainer.validate_tdm_args(_args(dim_from_weights=True))

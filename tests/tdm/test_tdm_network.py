@@ -150,3 +150,7 @@ def test_save_weights_contains_only_student_keys(tmp_path):
     assert not any("fake" in k for k in keys)
     assert "fake" in net._modules  # restored after saving
     assert any(k.startswith("fake.") for k in net.state_dict())
+
+
+def test_create_network_from_weights_is_exposed():
+    assert tdm_network.create_network_from_weights is lora_generic.create_network_from_weights

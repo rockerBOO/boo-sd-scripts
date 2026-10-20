@@ -48,11 +48,28 @@ Sample with the LoRA at `K` steps and guidance scale 1 (set `sample_steps` and `
 - `--compile` cannot be combined with `--gradient_checkpointing`.
 - With gradient checkpointing, TDM temporarily swaps `library.moss_image_models.torch_checkpoint` for a mode-aware
   wrapper, so each recomputed block runs with the LoRA multipliers it had in the forward pass (the DiT runs in several
-  LoRA modes per step, but backward happens once). sd-scripts files are not edited; the swap is undone after each step.
+  LoRA modes per step, but backward happens once). sd-scripts files are not edited; the swap is installed for the forward pass and restored when it ends.
+- Official defaults differ in sigma sampling: there, `mid` sits at the end of the segment and (without `use_separate`) `tau` is
+  drawn from the full range. Here `mid` is random in [sigma_next, sigma_g - 0.02] and `tau` is capped at sigma_g - 0.01.
+- Fake-score LR is 10x the student's by default; the official `train_tdm_demo.py` uses a 5x ratio (generator lr/5, fake lr) with
+  AdamW betas (0, 0.95). Change the ratio with `--network_args fake_lr=...` and the betas with `--optimizer_args "betas=(0,0.95)"`.
 - The paper updates the fake score, then the generator. Here both losses come from one forward pass and one optimizer step.
 - Student and fake score share one frozen base DiT (LoRA fake score instead of a full copy); both LoRAs are held in VRAM and the activations of the student and fake-score forwards are both alive, so use `--gradient_checkpointing`.
 - One student step is back-propagated per iteration (as in the paper); the step index and noise levels are drawn per sample.
 - The fake-score loss does not apply per-sample loss weights or masked loss (the generator term only does).
+
+## Practical notes
+
+- Start with batch size 1 and `--gradient_checkpointing`.
+- `--sample_uncond_skip_layers` also controls the teacher's unconditional branch during training, not only sampling.
+- `--max_grad_norm` clips the student and fake LoRAs jointly; try `--max_grad_norm 0` for first runs.
+- The logged loss is the sum of the generator and fake-score terms.
+- `--network_weights` re-initializes the fake LoRA from zero (back to the teacher); only `--save_state` / `--resume` preserves it.
+- `--base_weights` works (plain LoRAs are merged into the base); `--dim_from_weights` is rejected.
+- Validation (`--validation_*`) is unsupported and unreliable: TDM ignores validation timesteps, and sd-scripts reuses the
+  batch dict for each validation timestep.
+- `pytorch-optimizer` and `prodigy-plus-schedule-free` are not installed by this project; they are needed only if you pick
+  optimizers that use them.
 
 ## Not yet verified
 

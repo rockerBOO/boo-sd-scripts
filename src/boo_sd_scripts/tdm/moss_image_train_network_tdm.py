@@ -46,6 +46,9 @@ def validate_tdm_args(args) -> None:
         "--unsloth_offload_checkpointing is not supported by TDM training (use --gradient_checkpointing,"
         " optionally with --cpu_offload_checkpointing)"
     )
+    assert not getattr(args, "dim_from_weights", False), (
+        "--dim_from_weights is not supported by TDM training: it would build a plain LoRA network without the fake-score LoRA"
+    )
     assert not (getattr(args, "compile", False) and args.gradient_checkpointing), (
         "--compile cannot be combined with --gradient_checkpointing in TDM training: TDM's mode-aware checkpoint wrapper"
         " (per-call context_fn that restores the LoRA mode) is incompatible with torch.compile"
