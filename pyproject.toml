@@ -106,6 +106,10 @@ line-length = 132
 indent-width = 4
 extend-exclude = ["sd-scripts"]
 
+[tool.ruff.lint.isort]
+# sd-scripts packages are first-party for sorting; boo_sd_scripts sorts first, so _sd_scripts runs before they import.
+known-first-party = ["boo_sd_scripts", "library", "networks"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
